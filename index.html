@@ -16,9 +16,19 @@
       width: 100vw;
       height: 100vh;
     }
+
+    #status {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: bold;
+    }
   </style>
 
-  <!-- three.js と MindAR を読み込む設定 -->
   <script type="importmap">
   {
     "imports": {
@@ -32,51 +42,55 @@
 
 <body>
   <div id="container"></div>
+  <div id="status">画像を探しています…</div>
 
   <script type="module">
     import * as THREE from "three";
     import { MindARThree } from "mindar-image-three";
     import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-    // ARを作る
+    // ARの基本設定
     const mindarThree = new MindARThree({
       container: document.querySelector("#container"),
       imageTargetSrc: "./targets.mind"
     });
 
-    // MindARが用意する描画用のものを受け取る
     const { renderer, scene, camera } = mindarThree;
 
-    // targets.mind に登録した1枚目の画像にくっつける場所
+    // targets.mind に登録した最初の画像に反応する
     const anchor = mindarThree.addAnchor(0);
 
-    // アニメーションの時間を測る時計
-    const clock = new THREE.Clock();
+    // 画像を認識したか確認する表示
+    anchor.onTargetFound = () => {
+      document.querySelector("#status").textContent = "画像を見つけた！";
+    };
 
-    // あとで3Dモデルの動きを入れる変数
+    anchor.onTargetLost = () => {
+      document.querySelector("#status").textContent = "画像を探しています…";
+    };
+
+    // モデルのアニメーション用
+    const clock = new THREE.Clock();
     let mixer = null;
 
-    // 3Dモデルを読み込む係
+    // 3Dモデルを読み込む
     const loader = new GLTFLoader();
 
-    // LittlestTokyo.glb を読み込む
     loader.load(
       "./LittlestTokyo.glb",
 
-      // 読み込み成功したとき
+      // 読み込み成功
       (gltf) => {
         const model = gltf.scene;
 
-        // モデルの大きさ
-        model.scale.set(0.1, 0.1, 0.1);
+        // 最初は見つけやすい位置・大きさにする
+        model.scale.set(0.03, 0.03, 0.03);
+        model.position.set(0, 0, 0);
 
-        // モデルの位置
-        model.position.set(0, -0.4, 0);
-
-        // 認識した画像の上にモデルを置く
+        // 認識画像の上に3Dモデルを置く
         anchor.group.add(model);
 
-        // glbに入っているアニメーションを再生する
+        // glbに入っているアニメーションを再生
         mixer = new THREE.AnimationMixer(model);
 
         gltf.animations.forEach((clip) => {
@@ -84,16 +98,18 @@
         });
       },
 
-      // 読み込み中は何もしない
+      // 読み込み中
       undefined,
 
-      // 読み込み失敗したとき
+      // 読み込み失敗
       (error) => {
         console.error("3Dモデルを読み込めませんでした:", error);
+        document.querySelector("#status").textContent =
+          "3Dモデルの読み込みに失敗しました";
       }
     );
 
-    // 光を追加
+    // モデルを明るく表示するための光
     const light = new THREE.HemisphereLight(
       0xffffff,
       0x4444ff,
@@ -105,11 +121,10 @@
     // カメラを開始
     await mindarThree.start();
 
-    // 画面を毎フレーム更新する
+    // 毎フレーム描画
     renderer.setAnimationLoop(() => {
       const delta = clock.getDelta();
 
-      // モデルが読み込まれた後だけアニメーションを進める
       if (mixer) {
         mixer.update(delta);
       }
