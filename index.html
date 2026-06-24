@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>AR 動作テスト</title>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+
+    #container {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+
+  <!-- three.js と MindAR を読み込む設定 -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+      "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+    }
+  }
+  </script>
+</head>
+
+<body>
+  <div id="container"></div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { MindARThree } from "mindar-image-three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+    // ARを作る
+    const mindarThree = new MindARThree({
+      container: document.querySelector("#container"),
+      imageTargetSrc: "./targets.mind"
+    });
+
+    // MindARが用意する描画用のものを受け取る
+    const { renderer, scene, camera } = mindarThree;
+
+    // targets.mind に登録した1枚目の画像にくっつける場所
+    const anchor = mindarThree.addAnchor(0);
+
+    // アニメーションの時間を測る時計
+    const clock = new THREE.Clock();
+
+    // あとで3Dモデルの動きを入れる変数
+    let mixer = null;
+
+    // 3Dモデルを読み込む係
+    const loader = new GLTFLoader();
+
+    // LittlestTokyo.glb を読み込む
+    loader.load(
+      "./LittlestTokyo.glb",
+
+      // 読み込み成功したとき
+      (gltf) => {
+        const model = gltf.scene;
+
+        // モデルの大きさ
+        model.scale.set(0.1, 0.1, 0.1);
+
+        // モデルの位置
+        model.position.set(0, -0.4, 0);
+
+        // 認識した画像の上にモデルを置く
+        anchor.group.add(model);
+
+        // glbに入っているアニメーションを再生する
+        mixer = new THREE.AnimationMixer(model);
+
+        gltf.animations.forEach((clip) => {
+          mixer.clipAction(clip).play();
+        });
+      },
+
+      // 読み込み中は何もしない
+      undefined,
+
+      // 読み込み失敗したとき
+      (error) => {
+        console.error("3Dモデルを読み込めませんでした:", error);
+      }
+    );
+
+    // 光を追加
+    const light = new THREE.HemisphereLight(
+      0xffffff,
+      0x4444ff,
+      2
+    );
+
+    scene.add(light);
+
+    // カメラを開始
+    await mindarThree.start();
+
+    // 画面を毎フレーム更新する
+    renderer.setAnimationLoop(() => {
+      const delta = clock.getDelta();
+
+      // モデルが読み込まれた後だけアニメーションを進める
+      if (mixer) {
+        mixer.update(delta);
+      }
+
+      renderer.render(scene, camera);
+    });
+  </script>
+</body>
+</html>
