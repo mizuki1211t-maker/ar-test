@@ -1,136 +1,153 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>AR 動作テスト</title>
+<title>AR TEST</title>
 
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-    }
+<style>
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+}
 
-    #container {
-      width: 100vw;
-      height: 100vh;
-    }
+#container{
+  width:100%;
+  height:100%;
+}
 
-    #status {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      z-index: 10;
-      background: white;
-      padding: 10px;
-      border-radius: 8px;
-      font-weight: bold;
-    }
-  </style>
+#status{
+  position:fixed;
+  top:15px;
+  left:15px;
+  background:white;
+  padding:10px;
+  border-radius:8px;
+  font-size:18px;
+  font-weight:bold;
+  z-index:999;
+}
+</style>
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-      "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
-    }
+<script type="importmap">
+{
+  "imports": {
+    "three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/",
+    "mindar-image-three":"https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
   }
-  </script>
+}
+</script>
+
 </head>
 
 <body>
-  <div id="container"></div>
-  <div id="status">画像を探しています…</div>
 
-  <script type="module">
-    import * as THREE from "three";
-    import { MindARThree } from "mindar-image-three";
-    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+<div id="container"></div>
+<div id="status">画像を探しています…</div>
 
-    // ARの基本設定
-    const mindarThree = new MindARThree({
-      container: document.querySelector("#container"),
-      imageTargetSrc: "./targets.mind"
-    });
+<script type="module">
 
-    const { renderer, scene, camera } = mindarThree;
+import * as THREE from "three";
+import {MindARThree} from "mindar-image-three";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 
-    // targets.mind に登録した最初の画像に反応する
-    const anchor = mindarThree.addAnchor(0);
+const mindarThree=new MindARThree({
+    container:document.querySelector("#container"),
+    imageTargetSrc:"./targets.mind"
+});
 
-    // 画像を認識したか確認する表示
-    anchor.onTargetFound = () => {
-      document.querySelector("#status").textContent = "画像を見つけた！";
-    };
+const {renderer,scene,camera}=mindarThree;
 
-    anchor.onTargetLost = () => {
-      document.querySelector("#status").textContent = "画像を探しています…";
-    };
+const anchor=mindarThree.addAnchor(0);
 
-    // モデルのアニメーション用
-    const clock = new THREE.Clock();
-    let mixer = null;
+anchor.onTargetFound=()=>{
+    document.querySelector("#status").innerHTML="画像を見つけた！";
+}
 
-    // 3Dモデルを読み込む
-    const loader = new GLTFLoader();
+anchor.onTargetLost=()=>{
+    document.querySelector("#status").innerHTML="画像を探しています…";
+}
 
-    loader.load(
-      "./LittlestTokyo.glb",
 
-      // 読み込み成功
-      (gltf) => {
-        const model = gltf.scene;
+//------------------------------------
+// Light
+//------------------------------------
 
-        // 最初は見つけやすい位置・大きさにする
-        model.scale.set(0.03, 0.03, 0.03);
-        model.position.set(0, 0, 0);
+const hemi=new THREE.HemisphereLight(0xffffff,0xbbbbff,3);
+scene.add(hemi);
 
-        // 認識画像の上に3Dモデルを置く
-        anchor.group.add(model);
+const dir=new THREE.DirectionalLight(0xffffff,4);
+dir.position.set(0,5,5);
+scene.add(dir);
 
-        // glbに入っているアニメーションを再生
-        mixer = new THREE.AnimationMixer(model);
 
-        gltf.animations.forEach((clip) => {
-          mixer.clipAction(clip).play();
-        });
-      },
+//------------------------------------
+// Loader
+//------------------------------------
 
-      // 読み込み中
-      undefined,
+loader.load("./vetnum_model_before_figure_20260625.glb", (gltf) => {
 
-      // 読み込み失敗
-      (error) => {
-        console.error("3Dモデルを読み込めませんでした:", error);
-        document.querySelector("#status").textContent =
-          "3Dモデルの読み込みに失敗しました";
-      }
+    const model = gltf.scene;
+
+    // モデル全体の大きさ
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    // 中央へ移動
+    model.position.x -= center.x;
+    model.position.y -= center.y;
+    model.position.z -= center.z;
+
+    // 一番大きい辺を0.3mにする
+    const max = Math.max(size.x, size.y, size.z);
+    const scale = 0.3 / max;
+    model.scale.setScalar(scale);
+
+    // 向き
+    model.rotation.x = -Math.PI / 2;
+
+    // 少しだけ上へ
+    model.position.y += 0.15;
+
+    anchor.group.add(model);
+
+    console.log(box);
+});
+
+(xhr)=>{
+    console.log(
+        (xhr.loaded/xhr.total*100)+"%"
     );
+},
 
-    // モデルを明るく表示するための光
-    const light = new THREE.HemisphereLight(
-      0xffffff,
-      0x4444ff,
-      2
-    );
+(error)=>{
+    console.error(error);
+    document.querySelector("#status").innerHTML="モデル読み込み失敗";
+}
 
-    scene.add(light);
+);
 
-    // カメラを開始
-    await mindarThree.start();
 
-    // 毎フレーム描画
-    renderer.setAnimationLoop(() => {
-      const delta = clock.getDelta();
+//------------------------------------
+// Start
+//------------------------------------
 
-      if (mixer) {
-        mixer.update(delta);
-      }
+await mindarThree.start();
 
-      renderer.render(scene, camera);
-    });
-  </script>
+renderer.setAnimationLoop(()=>{
+
+    renderer.render(scene,camera);
+
+});
+
+</script>
+
 </body>
 </html>
+
+
