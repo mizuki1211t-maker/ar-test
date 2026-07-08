@@ -3,32 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>AR TEST</title>
+<title>AR Human Model</title>
 
 <style>
 html,body{
-  margin:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
+    margin:0;
+    overflow:hidden;
+    width:100%;
+    height:100%;
 }
 
 #container{
-  width:100%;
-  height:100%;
+    width:100%;
+    height:100%;
 }
 
 #status{
-  position:fixed;
-  top:15px;
-  left:15px;
-  background:white;
-  padding:10px;
-  border-radius:8px;
-  font-size:18px;
-  font-weight:bold;
-  z-index:999;
+    position:fixed;
+    top:20px;
+    left:20px;
+    background:white;
+    padding:10px;
+    border-radius:8px;
+    font-weight:bold;
+    z-index:999;
 }
 </style>
 
@@ -65,89 +63,77 @@ const {renderer,scene,camera}=mindarThree;
 const anchor=mindarThree.addAnchor(0);
 
 anchor.onTargetFound=()=>{
-    document.querySelector("#status").innerHTML="画像を見つけた！";
-}
+    document.getElementById("status").textContent="画像を見つけた！";
+};
 
 anchor.onTargetLost=()=>{
-    document.querySelector("#status").innerHTML="画像を探しています…";
-}
+    document.getElementById("status").textContent="画像を探しています…";
+};
 
+// ライト
+scene.add(new THREE.HemisphereLight(0xffffff,0x888888,3));
 
-//------------------------------------
-// Light
-//------------------------------------
+const light=new THREE.DirectionalLight(0xffffff,3);
+light.position.set(0,2,2);
+scene.add(light);
 
-const hemi=new THREE.HemisphereLight(0xffffff,0xbbbbff,3);
-scene.add(hemi);
+// モデル読み込み
+const loader=new GLTFLoader();
 
-const dir=new THREE.DirectionalLight(0xffffff,4);
-dir.position.set(0,5,5);
-scene.add(dir);
+loader.load(
+"./vetnum_model_before_figure_20260625.glb",
 
+(gltf)=>{
 
-//------------------------------------
-// Loader
-//------------------------------------
+    const model=gltf.scene;
 
-loader.load("./vetnum_model_before_figure_20260625.glb", (gltf) => {
+    // バウンディングボックス
+    const box=new THREE.Box3().setFromObject(model);
 
-    const model = gltf.scene;
+    const size=box.getSize(new THREE.Vector3());
 
-    // モデル全体の大きさ
-    const box = new THREE.Box3().setFromObject(model);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
+    const center=box.getCenter(new THREE.Vector3());
 
-    // 中央へ移動
-    model.position.x -= center.x;
-    model.position.y -= center.y;
-    model.position.z -= center.z;
+    // モデル中心へ
+    model.position.x=-center.x;
+    model.position.y=-center.y;
+    model.position.z=-center.z;
 
-    // 一番大きい辺を0.3mにする
-    const max = Math.max(size.x, size.y, size.z);
-    const scale = 0.3 / max;
-    model.scale.setScalar(scale);
+    // 最大サイズを0.25mに
+    const max=Math.max(size.x,size.y,size.z);
 
-    // 向き
-    model.rotation.x = -Math.PI / 2;
+    const scale=0.25/max;
 
-    // 少しだけ上へ
-    model.position.y += 0.15;
+    model.scale.set(scale,scale,scale);
+
+    // Blender→Three.js
+    model.rotation.x=-Math.PI/2;
+
+    // 少し持ち上げる
+    model.position.y+=0.05;
 
     anchor.group.add(model);
 
-    console.log(box);
-});
-
-(xhr)=>{
-    console.log(
-        (xhr.loaded/xhr.total*100)+"%"
-    );
+    console.log("読み込み成功");
 },
+
+undefined,
 
 (error)=>{
     console.error(error);
-    document.querySelector("#status").innerHTML="モデル読み込み失敗";
+    document.getElementById("status").textContent="モデル読み込み失敗";
 }
 
 );
 
-
-//------------------------------------
-// Start
-//------------------------------------
-
 await mindarThree.start();
 
 renderer.setAnimationLoop(()=>{
-
     renderer.render(scene,camera);
-
 });
 
 </script>
 
 </body>
 </html>
-
 
